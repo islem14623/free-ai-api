@@ -98,3 +98,79 @@ def summarize_text(input: TextInput):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
+# ==========================================
+# ENDPOINT 5: Translation
+# ==========================================
+class TranslationInput(BaseModel):
+    text: str
+    source_language: str = "auto"
+    target_language: str = "en"
+
+@app.post("/translate")
+def translate_text(input: TranslationInput):
+    """
+    Translate text between languages
+    
+    Supported languages:
+    - en: English
+    - fr: French
+    - ar: Arabic
+    - es: Spanish
+    - de: German
+    - auto: Auto-detect source language
+    
+    Example:
+    {
+        "text": "Bonjour, comment allez-vous?",
+        "source_language": "fr",
+        "target_language": "en"
+    }
+    """
+    try:
+        # Validate
+        if len(input.text.strip()) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Text too short to translate (minimum 2 characters)"
+            )
+        
+        # Create AI model
+        model = genai.GenerativeModel('models/gemini-2.5-flash')
+        
+        # Build prompt
+        if input.source_language == "auto":
+            prompt = f"""Translate this text to {input.target_language}.
+Detect the source language automatically.
+
+Text: {input.text}
+
+Provide ONLY the translation, nothing else."""
+        else:
+            prompt = f"""Translate this text from {input.source_language} to {input.target_language}.
+
+Text: {input.text}
+
+Provide ONLY the translation, nothing else."""
+        
+        # Get translation
+        response = model.generate_content(prompt)
+        
+        # Return result
+        return {
+            "status": "success",
+            "original_text": input.text,
+            "translated_text": response.text.strip(),
+            "source_language": input.source_language,
+            "target_language": input.target_language,
+            "characters": len(input.text)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Translation error: {str(e)}"
+        )
